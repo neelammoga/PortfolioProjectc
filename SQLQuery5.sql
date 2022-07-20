@@ -1,0 +1,141 @@
+--cleaning data in sql queries
+
+select* FROM [myportfolio].[dbo].[nashville housing]
+
+--date format
+
+select SaleDate FROM [myportfolio].[dbo].[nashville housing]
+
+
+select CONVERT(date,SaleDate) as saledateconverted
+FROM [myportfolio].[dbo].[nashville housing]
+
+
+alter table [nashville housing]
+add saledateconverted date
+
+update [nashville housing]
+set saledateconverted=CONVERT(date,SaleDate) 
+
+
+--populate property address data
+
+select a.ParcelID,b.ParcelID,a.PropertyAddress,b.PropertyAddress,ISNULL(a.PropertyAddress,b.PropertyAddress)
+FROM [myportfolio].[dbo].[nashville housing] a
+join [myportfolio].[dbo].[nashville housing] b
+   on a.ParcelID=b.ParcelID
+   and a.UniqueId <> b.UniqueId
+ where a.PropertyAddress is null
+
+ update a
+ set PropertyAddress=ISNULL(a.PropertyAddress,b.PropertyAddress)
+ FROM [myportfolio].[dbo].[nashville housing] a
+join [myportfolio].[dbo].[nashville housing] b
+   on a.ParcelID=b.ParcelID
+   and a.UniqueId <> b.UniqueId
+ where a.PropertyAddress is null
+
+
+ --breaking out address into single column(address,city,state)
+
+ select PropertyAddress
+ FROM [myportfolio].[dbo].[nashville housing]
+
+ select 
+ SUBSTRING(PropertyAddress,1, CHARINDEX(',',PropertyAddress) -1) as address
+ ,SUBSTRING(PropertyAddress, CHARINDEX(',',PropertyAddress)  +1, len(PropertyAddress)) as address
+ FROM [myportfolio].[dbo].[nashville housing]
+
+
+
+
+ alter table [nashville housing]
+add PropertySplitAddress nvarchar(255)
+
+update [nashville housing]
+set PropertySplitAddress= SUBSTRING(PropertyAddress,1, CHARINDEX(',',PropertyAddress) -1)
+
+alter table [nashville housing]
+add PropertySplitCity nvarchar(255)
+
+update [nashville housing]
+set PropertySplitCity=SUBSTRING(PropertyAddress, CHARINDEX(',',PropertyAddress)  +1, len(PropertyAddress))
+
+select*
+ FROM [myportfolio].[dbo].[nashville housing]
+
+
+ select 
+ parsename(replace(OwnerAddress,',','.'),3)
+ ,parsename(replace(OwnerAddress,',','.'),2)
+ ,parsename(replace(OwnerAddress,',','.'),1)
+ FROM [myportfolio].[dbo].[nashville housing]
+
+
+ alter table [nashville housing]
+add OwnerSplitAddress nvarchar(255)
+
+update [nashville housing]
+set OwnerSplitAddress=  parsename(replace(OwnerAddress,',','.'),3)
+
+alter table [nashville housing]
+add OwnerSplitCity nvarchar(255)
+
+update [nashville housing]
+set OwnerSplitCity=parsename(replace(OwnerAddress,',','.'),2)
+
+alter table [nashville housing]
+add OwnerSplitState nvarchar(255)
+
+update [nashville housing]
+set OwnerSplitState=parsename(replace(OwnerAddress,',','.'),1)
+
+
+
+
+select*
+ FROM [myportfolio].[dbo].[nashville housing]
+
+--change Y and N to yes and no to 'solidvacant' solid
+
+select distinct(SoldAsVacant),count(SoldAsVacant)
+FROM [myportfolio].[dbo].[nashville housing]
+group by SoldAsVacant
+order by 2
+
+select SoldAsVacant
+,CASE WHEN SoldAsVacant='Y' THEN 'Yes'
+      WHEN SoldAsVacant='N'THEN 'No'
+	  ELSE SoldAsVacant
+	  END
+FROM [myportfolio].[dbo].[nashville housing]
+
+
+UPDATE [nashville housing]
+SET  SoldAsVacant=CASE WHEN SoldAsVacant='Y' THEN 'Yes'
+      WHEN SoldAsVacant='N'THEN 'No'
+	  ELSE SoldAsVacant
+	  END
+
+
+--remove duplicates
+
+WITH RowNumCTE AS(
+select *,
+ ROW_NUMBER() OVER(
+ PARTITION BY ParcelID,
+	          PropertyAddress,
+	          SaleDate,
+	          SalePrice,
+	          LegelReference
+	          order by
+	          UniqueID
+	          ) Row_num
+FROM myportfolio.dbo.nashville housing
+)
+
+
+--delete columns
+
+alter table [nashville housing]
+drop column SaleDate,PropertyAddress,TaxDistrict,OwnerAddress
